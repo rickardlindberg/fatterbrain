@@ -1,11 +1,15 @@
 #!/bin/bash
 
 initial_state() {
-    echo "^"; echo "1"; echo "2"; echo "^";
-    echo "v"; echo "3"; echo "4"; echo "v";
-    echo "^"; echo "<"; echo ">"; echo "^";
-    echo "v"; echo "o"; echo "o"; echo "v";
-    echo "o"; echo "_"; echo "_"; echo "o";
+    echo "1 ^";  echo "2 1";  echo "3 2";  echo "4 ^";
+    echo "5 v";  echo "6 3";  echo "7 4";  echo "8 v";
+    echo "9 ^";  echo "10 <"; echo "11 >"; echo "12 ^";
+    echo "13 v"; echo "14 o"; echo "15 o"; echo "16 v";
+    echo "17 o"; echo "18 _"; echo "19 _"; echo "20 o";
+}
+
+print_current_state() {
+    cat $state_file | awk '{print $2}' | print_state
 }
 
 print_state() {
@@ -36,7 +40,7 @@ find_other_state() {
         echo "Backtracking."
         return 1
     fi
-    if cat $state_file | is_state_solution; then
+    if cat $state_file | awk '{print $2}' | is_state_solution; then
         echo "Found solution in state" $(pwd)
         pwd
         return 0
@@ -52,7 +56,7 @@ find_other_state() {
         done
         for dir in sub_*; do
             echo "Making move:"
-            (cd $dir && cat $state_file | print_state && find_other_state)
+            (cd $dir && print_current_state && find_other_state)
             if test $? -eq 0; then
                 return 0
             fi
@@ -73,7 +77,7 @@ has_state_earlier() {
 }
 
 state_at_current() {
-    cat $state_file | state_at $1
+    cat $state_file | awk '{print $2}' | state_at $1
 }
 
 move_single() {
@@ -134,7 +138,7 @@ can_move() {
 }
 
 state_empty_at_current() {
-    cat $state_file | state_empty_at $1
+    cat $state_file | awk '{print $2}' | state_empty_at $1
 }
 
 state_empty_at() {
@@ -180,7 +184,7 @@ replace() {
     fi
     new_name="sub_$(expr $largest + 1)"
     mkdir $new_name
-    cat $state_file | numbered_state | sed "$1" | awk '{print $2}' > "$new_name/$state_file"
+    cat $state_file | sed "$1" > "$new_name/$state_file"
 }
 
 state_at() {
@@ -198,16 +202,11 @@ put() {
 }
 
 is_state_solution() {
-    test $(numbered_state | grep "^\(14 1\|15 2\|18 3\|19 4\)" | wc -l) -eq 4
+    test $(grep "^\(14 1\|15 2\|18 3\|19 4\)" | wc -l) -eq 4
 }
-
-numbered_state() {
-    awk '{pos++} {print pos " " $0}'
-}
-
 
 state_file="state.txt"
 initial_state > $state_file
 
-initial_state | print_state
+print_current_state
 find_other_state
