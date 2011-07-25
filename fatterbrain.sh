@@ -1,6 +1,13 @@
 #!/bin/bash
 
-initial_state() {
+STATE_FILE="state.txt"
+
+find_solution_from_begining() {
+    print_initial_state > $STATE_FILE
+    search_for_solution
+}
+
+print_initial_state() {
     echo "1 ^";  echo "2 1";  echo "3 2";  echo "4 ^";
     echo "5 v";  echo "6 3";  echo "7 4";  echo "8 v";
     echo "9 ^";  echo "10 <"; echo "11 >"; echo "12 ^";
@@ -8,8 +15,31 @@ initial_state() {
     echo "17 o"; echo "18 _"; echo "19 _"; echo "20 o";
 }
 
+search_for_solution() {
+    print_current_state
+    echo "Level =" $(pwd | tr "/" "\n" | wc -l)
+    if has_state_been_visited; then
+        echo "Backtracking."
+        return 1
+    fi
+    if is_current_state_solution; then
+        echo "Found solution in state" $(pwd)
+        return 0
+    else
+        create_sub_states
+        for dir in sub_*; do
+            echo "Making move:"
+            (cd $dir && search_for_solution)
+            if test $? -eq 0; then
+                return 0
+            fi
+        done
+        return 1
+    fi
+}
+
 print_current_state() {
-    cat $state_file | awk '{print $2}' | print_state
+    cat $STATE_FILE | awk '{print $2}' | print_state
 }
 
 print_state() {
@@ -34,82 +64,73 @@ print_state() {
     put "+-------------+\n"
 }
 
-find_other_state() {
-    echo "Level =" $(pwd | tr "/" "\n" | wc -l)
-    if has_state_earlier; then
-        echo "Backtracking."
-        return 1
-    fi
-    if cat $state_file | awk '{print $2}' | is_state_solution; then
-        echo "Found solution in state" $(pwd)
-        pwd
-        return 0
-    else
-        for pos in {1..20}; do
-            char=$(state_at_current $pos)
-            case $char in
-                "o") move_single $pos ;;
-                "^") move_tower $pos ;;
-                "<") move_stock $pos ;;
-                "1") move_square $pos ;;
-            esac
-        done
-        for dir in sub_*; do
-            echo "Making move:"
-            (cd $dir && print_current_state && find_other_state)
-            if test $? -eq 0; then
-                return 0
-            fi
-        done
-        return 1
-    fi
+put() {
+    printf "%b" "$1"
 }
 
-has_state_earlier() {
-    file="../$state_file"
-    while test -e "$file"; do
-        if diff $file $state_file > /dev/null 2>&1; then
+has_state_been_visited() {
+    previous_state="../$STATE_FILE"
+    while test -e "$previous_state"; do
+        if diff $previous_state $STATE_FILE > /dev/null 2>&1; then
             return 0
         fi
-        file="../$file"
+        previous_state="../$previous_state"
     done
     return 1
 }
 
-state_at_current() {
-    cat $state_file | awk '{print $2}' | state_at $1
+is_current_state_solution() {
+    cat $STATE_FILE | test $(grep "^\(14 1\|15 2\|18 3\|19 4\)" | wc -l) -eq 4
+}
+
+create_sub_states() {
+    move_pieces $(cat $STATE_FILE | grep "^[0-9]* [o^<1]")
+}
+
+move_pieces() {
+    while test $# -ne 0; do
+        pos=$1
+        char=$2
+        shift 2
+        case $char in
+            "o") move_single $pos ;;
+            "^") move_tower $pos ;;
+            "<") move_stock $pos ;;
+            "1") move_square $pos ;;
+        esac
+    done
 }
 
 move_single() {
     pos=$1
-    can_move $pos -1 && single_move_replace -1 o $pos
-    can_move $pos  1 && single_move_replace  1 o $pos
-    can_move $pos -4 && single_move_replace -4 o $pos
-    can_move $pos  4 && single_move_replace  4 o $pos
+    can_move $pos -1 && move_parts_by_delta -1 o $pos
+    can_move $pos  1 && move_parts_by_delta  1 o $pos
+    can_move $pos -4 && move_parts_by_delta -4 o $pos
+    can_move $pos  4 && move_parts_by_delta  4 o $pos
 }
 
 move_tower() {
     top_pos=$1
     bottom_pos=$(expr $1 + 4)
     can_move $top_pos -1 && can_move $bottom_pos -1 && \
-        single_move_replace -1 ^ $top_pos v $bottom_pos
+        move_parts_by_delta -1 ^ $top_pos v $bottom_pos
     can_move $top_pos 1 && can_move $bottom_pos 1 && \
-        single_move_replace  1 ^ $top_pos v $bottom_pos
+        move_parts_by_delta  1 ^ $top_pos v $bottom_pos
     can_move $top_pos    -4 && \
-        single_move_replace -4 ^ $top_pos v $bottom_pos
+        move_parts_by_delta -4 ^ $top_pos v $bottom_pos
     can_move $bottom_pos  4 && \
-        single_move_replace  4 v $bottom_pos ^ $top_pos
+        move_parts_by_delta  4 v $bottom_pos ^ $top_pos
 }
 
 move_stock() {
     left_pos=$1
     right_pos=$(expr $1 + 1)
-    can_move $left_pos -1 && single_move_replace -1 "<" $left_pos ">" $right_pos
-    can_move $right_pos 1 && single_move_replace  1 ">" $right_pos "<" $left_pos
+    can_move $left_pos -1 && move_parts_by_delta -1 "<" $left_pos ">" $right_pos
+    can_move $right_pos 1 && move_parts_by_delta  1 ">" $right_pos "<" $left_pos
     can_move $left_pos -4 && can_move $right_pos -4 && \
-        single_move_replace -4 "<" $left_pos ">" $right_pos
+        move_parts_by_delta -4 "<" $left_pos ">" $right_pos
     can_move $left_pos 4 && can_move $right_pos 4 && \
-        single_move_replace 4 "<" $left_pos ">" $right_pos
+        move_parts_by_delta 4 "<" $left_pos ">" $right_pos
 }
 
 move_square() {
@@ -118,13 +139,13 @@ move_square() {
     left_down_pos=$(expr $1 + 4)
     right_down_pos=$(expr $1 + 5)
     can_move $left_up_pos -1 && can_move $left_down_pos -1 && \
-        single_move_replace -1 "1" $left_up_pos "3" $left_down_pos "2" $right_up_pos "4" $right_down_pos
+        move_parts_by_delta -1 "1" $left_up_pos "3" $left_down_pos "2" $right_up_pos "4" $right_down_pos
     can_move $right_up_pos 1 && can_move $right_down_pos 1 && \
-        single_move_replace 1 "2" $right_up_pos "4" $right_down_pos "1" $left_up_pos "3" $left_down_pos 
+        move_parts_by_delta 1 "2" $right_up_pos "4" $right_down_pos "1" $left_up_pos "3" $left_down_pos 
     can_move $left_up_pos -4 && can_move $right_up_pos -4 && \
-        single_move_replace -4 "1" $left_up_pos "2" $right_up_pos "3" $left_down_pos "4" $right_down_pos
+        move_parts_by_delta -4 "1" $left_up_pos "2" $right_up_pos "3" $left_down_pos "4" $right_down_pos
     can_move $left_down_pos 4 && can_move $right_down_pos 4 && \
-        single_move_replace 4 "3" $left_down_pos "4" $right_down_pos "1" $left_up_pos "2" $right_up_pos 
+        move_parts_by_delta 4 "3" $left_down_pos "4" $right_down_pos "1" $left_up_pos "2" $right_up_pos 
 }
 
 can_move() {
@@ -137,23 +158,15 @@ can_move() {
     state_empty_at_current $(expr $pos + $delta)
 }
 
-state_empty_at_current() {
-    cat $state_file | awk '{print $2}' | state_empty_at $1
-}
-
-state_empty_at() {
-    test "$(state_at $1)" = "_"
-}
-
-leftmost()   {
+leftmost() {
     test $(expr $1 % 4) -eq 1
 }
 
-rightmost()  {
+rightmost() {
     test $(expr $1 % 4) -eq 0
 }
 
-topmost()    {
+topmost() {
     test $1 -gt 0 && test $1 -lt 5
 }
 
@@ -161,52 +174,38 @@ bottommost() {
     test $1 -gt 16 && test $1 -lt 21
 }
 
-single_move_replace() {
+state_empty_at_current() {
+    cat $STATE_FILE | grep "^$1 _" > /dev/null 2<&1
+}
+
+move_parts_by_delta() {
     replace_string=""
     delta=$1
     shift
-    num_pieces=$(expr $# / 2)
-    for i in $(seq 1 $num_pieces); do
+    num_parts=$(expr $# / 2)
+    for i in $(seq 1 $num_parts); do
         symbol=$1
         pos=$2
         new_pos=$(expr $pos + $delta)
         shift 2
         replace_string="$replace_string ; s/^$pos $symbol/$pos _/ ; s/^$new_pos _/$new_pos $symbol/"
     done
-    replace "$replace_string"
+    create_new_state_by_replace "$replace_string"
 }
 
-replace() {
+create_new_state_by_replace() {
+    state_name=$(generate_new_state_name)
+    mkdir $state_name
+    cat $STATE_FILE | sed "$1" > "$state_name/$STATE_FILE"
+}
+
+generate_new_state_name() {
     if test "$(echo sub_*)" = "sub_*"; then
         largest="0"
     else
         largest=$(echo sub_* | tr " " "\n" | tr "_" " " | awk '{print $2}' | sort -n | tail -n1)
     fi
-    new_name="sub_$(expr $largest + 1)"
-    mkdir $new_name
-    cat $state_file | sed "$1" > "$new_name/$state_file"
+    echo "sub_$(expr $largest + 1)"
 }
 
-state_at() {
-    discard_index=1
-    while test $discard_index -lt $1; do
-        read char
-        discard_index=$(expr $discard_index + 1)
-    done
-    read char
-    echo $char
-}
-
-put() {
-    printf "%b" "$1"
-}
-
-is_state_solution() {
-    test $(grep "^\(14 1\|15 2\|18 3\|19 4\)" | wc -l) -eq 4
-}
-
-state_file="state.txt"
-initial_state > $state_file
-
-print_current_state
-find_other_state
+find_solution_from_begining
