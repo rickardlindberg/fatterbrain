@@ -1,0 +1,9 @@
+A solver for the puzzle at http://fatbrain.se/b/
+
+Implemented with a depth-first search algorithm.
+
+It is extremely slow.
+
+You probably should not write things like this in Bash script.
+
+I did it just for fun :-)
