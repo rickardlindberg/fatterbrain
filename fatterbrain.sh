@@ -3,6 +3,7 @@
 STATE_FILE="state.txt"
 
 find_solution_from_begining() {
+    cd $(mktemp -d fatterbrain_data_XXXXXXXXXX)
     print_initial_state > $STATE_FILE
     search_for_solution
 }
@@ -16,7 +17,7 @@ print_initial_state() {
 }
 
 search_for_solution() {
-    print_current_state
+    verbose && print_current_state
     echo "Level =" $(pwd | tr "/" "\n" | wc -l)
     if has_state_been_visited; then
         echo "Backtracking."
@@ -24,11 +25,12 @@ search_for_solution() {
     fi
     if is_current_state_solution; then
         echo "Found solution in state" $(pwd)
+        print_solution
         return 0
     else
         create_sub_states
         for dir in sub_*; do
-            echo "Making move:"
+            verbose && echo "Making move:"
             (cd $dir && search_for_solution)
             if test $? -eq 0; then
                 return 0
@@ -36,6 +38,34 @@ search_for_solution() {
         done
         return 1
     fi
+}
+
+verbose() {
+    return 1
+}
+
+has_state_been_visited() {
+    previous_state="../$STATE_FILE"
+    while test -e "$previous_state"; do
+        if diff $previous_state $STATE_FILE > /dev/null 2>&1; then
+            return 0
+        fi
+        previous_state="../$previous_state"
+    done
+    return 1
+}
+
+is_current_state_solution() {
+    cat $STATE_FILE | test $(grep "^\(14 1\|15 2\|18 3\|19 4\)" | wc -l) -eq 4
+}
+
+print_solution() {
+    current_dir=$(pwd)
+    while test -e "$STATE_FILE"; do
+        print_current_state
+        cd ..
+    done
+    cd "$current_dir"
 }
 
 print_current_state() {
@@ -66,21 +96,6 @@ print_state() {
 
 put() {
     printf "%b" "$1"
-}
-
-has_state_been_visited() {
-    previous_state="../$STATE_FILE"
-    while test -e "$previous_state"; do
-        if diff $previous_state $STATE_FILE > /dev/null 2>&1; then
-            return 0
-        fi
-        previous_state="../$previous_state"
-    done
-    return 1
-}
-
-is_current_state_solution() {
-    cat $STATE_FILE | test $(grep "^\(14 1\|15 2\|18 3\|19 4\)" | wc -l) -eq 4
 }
 
 create_sub_states() {
