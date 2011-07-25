@@ -6,11 +6,6 @@ initial_state() {
     echo "^"; echo "<"; echo ">"; echo "^";
     echo "v"; echo "o"; echo "o"; echo "v";
     echo "o"; echo "_"; echo "_"; echo "o";
-    #echo "_"; echo "_"; echo "_"; echo "_";
-    #echo "_"; echo "_"; echo "_"; echo "_";
-    #echo "_"; echo "1"; echo "2"; echo "_";
-    #echo "_"; echo "3"; echo "4"; echo "_";
-    #echo "_"; echo "_"; echo "_"; echo "_";
 }
 
 print_state() {
