@@ -32,7 +32,7 @@ search_for_solution() {
         for dir in sub_*; do
             verbose && echo "Making move:"
             (cd $dir && search_for_solution)
-            if test $? -eq 0; then
+            if (($? == 0)); then
                 return 0
             fi
         done
@@ -41,12 +41,12 @@ search_for_solution() {
 }
 
 verbose() {
-    return 1
+    true
 }
 
 has_state_been_visited() {
     previous_state="../$STATE_FILE"
-    while test -e "$previous_state"; do
+    while [[ -e "$previous_state" ]]; do
         if diff $previous_state $STATE_FILE > /dev/null 2>&1; then
             return 0
         fi
@@ -56,12 +56,12 @@ has_state_been_visited() {
 }
 
 is_current_state_solution() {
-    cat $STATE_FILE | test $(grep "^\(14 1\|15 2\|18 3\|19 4\)" | wc -l) -eq 4
+    cat $STATE_FILE | (($(grep "^\(14 1\|15 2\|18 3\|19 4\)" | wc -l) == 4))
 }
 
 print_solution() {
     current_dir=$(pwd)
-    while test -e "$STATE_FILE"; do
+    while [[ -e "$STATE_FILE" ]]; do
         print_current_state
         cd ..
     done
@@ -75,7 +75,7 @@ print_current_state() {
 print_state() {
     put "+-------------+\n"
     for pos in {1..20}; do
-        if test $(expr $pos % 4) -eq 1; then put "| "; fi
+        if (($pos % 4 == 1)); then put "| "; fi
         read char
         case $char in
             "^") put "/\\ " ;;
@@ -89,7 +89,7 @@ print_state() {
             "o") put "() "  ;;
             "_") put "   "  ;;
         esac
-        if test $(expr $pos % 4) -eq 0; then put "|\n"; fi
+        if (($pos % 4 == 0)); then put "|\n"; fi
     done
     put "+-------------+\n"
 }
@@ -103,7 +103,7 @@ create_sub_states() {
 }
 
 move_pieces() {
-    while test $# -ne 0; do
+    while (($# != 0)); do
         pos=$1
         char=$2
         shift 2
@@ -126,7 +126,7 @@ move_single() {
 
 move_tower() {
     top_pos=$1
-    bottom_pos=$(expr $1 + 4)
+    ((bottom_pos = $1 + 4))
     can_move $top_pos -1 && can_move $bottom_pos -1 && \
         move_parts_by_delta -1 ^ $top_pos v $bottom_pos
     can_move $top_pos 1 && can_move $bottom_pos 1 && \
@@ -139,7 +139,7 @@ move_tower() {
 
 move_stock() {
     left_pos=$1
-    right_pos=$(expr $1 + 1)
+    ((right_pos = $1 + 1))
     can_move $left_pos -1 && move_parts_by_delta -1 "<" $left_pos ">" $right_pos
     can_move $right_pos 1 && move_parts_by_delta  1 ">" $right_pos "<" $left_pos
     can_move $left_pos -4 && can_move $right_pos -4 && \
@@ -150,9 +150,9 @@ move_stock() {
 
 move_square() {
     left_up_pos=$1
-    right_up_pos=$(expr $1 + 1)
-    left_down_pos=$(expr $1 + 4)
-    right_down_pos=$(expr $1 + 5)
+    ((right_up_pos = $1 + 1))
+    ((left_down_pos = $1 + 4))
+    ((right_down_pos = $1 + 5))
     can_move $left_up_pos -1 && can_move $left_down_pos -1 && \
         move_parts_by_delta -1 "1" $left_up_pos "3" $left_down_pos "2" $right_up_pos "4" $right_down_pos
     can_move $right_up_pos 1 && can_move $right_down_pos 1 && \
@@ -166,27 +166,27 @@ move_square() {
 can_move() {
     pos=$1
     delta=$2
-    leftmost $pos && test $delta -eq -1 && return 1
-    topmost $pos && test $delta -eq -4 && return 1
-    rightmost $pos && test $delta -eq 1 && return 1
-    bottommost $pos && test $delta -eq 4 && return 1
-    state_empty_at_current $(expr $pos + $delta)
+    leftmost $pos && (($delta == -1)) && return 1
+    topmost $pos && (($delta == -4)) && return 1
+    rightmost $pos && (($delta == 1)) && return 1
+    bottommost $pos && (($delta == 4)) && return 1
+    state_empty_at_current $(($pos + $delta))
 }
 
 leftmost() {
-    test $(expr $1 % 4) -eq 1
+    (($1 % 4 == 1))
 }
 
 rightmost() {
-    test $(expr $1 % 4) -eq 0
+    (($1 % 4 == 0))
 }
 
 topmost() {
-    test $1 -gt 0 && test $1 -lt 5
+    (($1 > 0 && $1 < 5))
 }
 
 bottommost() {
-    test $1 -gt 16 && test $1 -lt 21
+    (($1 > 16 && $1 < 21))
 }
 
 state_empty_at_current() {
@@ -197,11 +197,11 @@ move_parts_by_delta() {
     replace_string=""
     delta=$1
     shift
-    num_parts=$(expr $# / 2)
+    ((num_parts = $# / 2))
     for i in $(seq 1 $num_parts); do
         symbol=$1
         pos=$2
-        new_pos=$(expr $pos + $delta)
+        ((new_pos = $pos + $delta))
         shift 2
         replace_string="$replace_string ; s/^$pos $symbol/$pos _/ ; s/^$new_pos _/$new_pos $symbol/"
     done
@@ -215,12 +215,12 @@ create_new_state_by_replace() {
 }
 
 generate_new_state_name() {
-    if test "$(echo sub_*)" = "sub_*"; then
+    if [[ "$(echo sub_*)" = "sub_*" ]]; then
         largest="0"
     else
         largest=$(echo sub_* | tr " " "\n" | tr "_" " " | awk '{print $2}' | sort -n | tail -n1)
     fi
-    echo "sub_$(expr $largest + 1)"
+    echo "sub_$(($largest + 1))"
 }
 
 find_solution_from_begining
