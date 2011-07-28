@@ -5,7 +5,11 @@ STATE_FILE="state.txt"
 find_solution_from_begining() {
     cd $(mktemp -d fatterbrain_data_XXXXXXXXXX)
     print_initial_state > $STATE_FILE
-    search_for_solution
+    if [[ $1 = "depth" ]]; then
+        search_for_solution_depth_first
+    elif [[ $1 = "breadth" ]]; then
+        search_for_solution_breadth_first
+    fi
 }
 
 print_initial_state() {
@@ -16,7 +20,7 @@ print_initial_state() {
     echo "17 o"; echo "18 _"; echo "19 _"; echo "20 o";
 }
 
-search_for_solution() {
+search_for_solution_depth_first() {
     verbose && print_current_state
     echo "Level =" $(pwd | tr "/" "\n" | wc -l)
     if has_state_been_visited; then
@@ -31,13 +35,47 @@ search_for_solution() {
         create_sub_states
         for dir in sub_*; do
             verbose && echo "Making move:"
-            (cd $dir && search_for_solution)
+            (cd $dir && search_for_solution_depth_first)
             if (($? == 0)); then
                 return 0
             fi
         done
         return 1
     fi
+}
+
+search_for_solution_breadth_first() {
+    root=$(pwd)
+    states="$STATE_FILE"
+    level=0
+    while true; do
+        level=$(expr $level + 1)
+        echo "At level" $level
+        for state in $states; do
+            (
+                put "."
+                state_dir=$(dirname $state)
+                cd $state_dir
+                if has_state_been_visited; then
+                    printf "d"
+                    rm -r $root/$state_dir
+                    return 1
+                elif is_current_state_solution; then
+                    echo
+                    print_solution
+                    return 0
+                else
+                    create_sub_states
+                    return 1
+                fi
+            )
+            if test $? -eq 0; then
+                exit 0
+            fi
+        done
+        echo
+        states="*/$states"
+    done
 }
 
 verbose() {
@@ -223,4 +261,4 @@ generate_new_state_name() {
     echo "sub_$(($largest + 1))"
 }
 
-find_solution_from_begining
+find_solution_from_begining $1
